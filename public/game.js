@@ -172,7 +172,8 @@ window.onload = () => {
     if(isOffline) {
         cachedBattles = {
             'b_silence': { id:'b_silence', name:'Тишина — Каждый за себя', map:'silence', players:0, max:10 },
-            'b_sandbox': { id:'b_sandbox', name:'Песочница — Каждый за себя', map:'sandbox', players:0, max:8 }
+            'b_sandbox': { id:'b_sandbox', name:'Песочница — Каждый за себя', map:'sandbox', players:0, max:8 },
+            'b_kubiki':  { id:'b_kubiki',  name:'Кубики — Каждый за себя',   map:'kubiki',  players:0, max:8 }
         };
     }
  
@@ -238,7 +239,136 @@ function selectBattle(id, data) {
     document.getElementById('info-panel-content').style.display='flex';
     document.getElementById('create-panel-content').style.display='none';
     document.getElementById('info-panel-header').innerText='ИНФОРМАЦИЯ О БИТВЕ';
+    drawMapPreview(data.map||'sandbox');
+    // Заполнение info-полей если есть
+    const mn=document.getElementById('b-info-mode'); if(mn) mn.innerText=(data.mode||'DM').toUpperCase();
+    const pl=document.getElementById('b-info-players'); if(pl) pl.innerText=`${data.players||0}/${data.max||8}`;
+    const tm=document.getElementById('b-info-time'); if(tm) tm.innerText='10 мин';
     renderBattles();
+}
+
+// ── ПРЕВЬЮ КАРТЫ — top-down пиксельная схема ──────────────────────
+function drawMapPreview(mapType) {
+    const cv=document.getElementById('map-preview-canvas');
+    if(!cv) return;
+    const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+    if(mapType==='kubiki') {
+        // Серый бетон + цветные кубы
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,'#6e6860'); g.addColorStop(1,'#383430');
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        // Плитки пола
+        ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
+        for(let i=0;i<W;i+=22){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke(); }
+        for(let i=0;i<H;i+=22){ ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke(); }
+        // Рамка-стены
+        ctx.strokeStyle='#9a9080'; ctx.lineWidth=8; ctx.strokeRect(8,8,W-16,H-16);
+        // Угловые столбы
+        ctx.fillStyle='#4a443a'; for(const [x,y] of [[8,8],[W-26,8],[8,H-26],[W-26,H-26]]) ctx.fillRect(x,y,18,18);
+        // Центр — круг с эмблемой
+        ctx.fillStyle='#444038'; ctx.beginPath(); ctx.arc(W/2,H/2,28,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#ffcc00'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(W/2,H/2,28,0,Math.PI*2); ctx.stroke();
+        ctx.fillStyle='#ffcc00'; ctx.font='bold 30px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('★',W/2,H/2);
+        // Кубы (большие)
+        const kubeCols=['#ccc0a0','#cc6644','#5588cc','#cccc44'];
+        const bigK=[[-32,-32,0],[32,-32,1],[-32,32,2],[32,32,3],[-60,0,0],[60,0,0],[0,-60,1],[0,60,2]];
+        for(const [bx,by,ci] of bigK) {
+            const px=W/2+bx*1.7, py=H/2+by*1.7;
+            ctx.fillStyle=kubeCols[ci]; ctx.fillRect(px-10,py-10,20,20);
+            ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.strokeRect(px-10,py-10,20,20);
+        }
+        // Малые кубы
+        const smK=[[-18,0,3],[18,0,3],[0,-18,0],[0,18,0],[-22,-50,1],[22,-50,1],[-22,50,2],[22,50,2]];
+        for(const [bx,by,ci] of smK) {
+            const px=W/2+bx*1.7, py=H/2+by*1.7;
+            ctx.fillStyle=kubeCols[ci]; ctx.fillRect(px-6,py-6,12,12);
+            ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.strokeRect(px-6,py-6,12,12);
+        }
+        // Боковые баррикады
+        for(const [bx,by,bw,bh] of [[-78,-15,8,28],[78,-15,8,28],[-78,15,8,28],[78,15,8,28],[-15,-78,28,8],[15,-78,28,8],[-15,78,28,8],[15,78,28,8]]) {
+            const px=W/2+bx*1.7, py=H/2+by*1.7;
+            ctx.fillStyle='#aaa090'; ctx.fillRect(px-bw/2,py-bh/2,bw,bh);
+            ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.strokeRect(px-bw/2,py-bh/2,bw,bh);
+        }
+        // Текст
+        ctx.font='bold 14px Oswald'; ctx.fillStyle='rgba(255,255,255,0.8)';
+        ctx.textAlign='left'; ctx.fillText('АРЕНА: КУБИКИ',12,H-12);
+    } else if(mapType==='sandbox') {
+        // Зелёный газон + плитчатый двор + крепостные стены
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,'#3a5a18'); g.addColorStop(1,'#1e3a08');
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        // Двор-плитка
+        ctx.fillStyle='#8a8068'; ctx.fillRect(W*0.18,H*0.18,W*0.64,H*0.64);
+        ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
+        for(let x=W*0.18;x<W*0.82;x+=18){ ctx.beginPath();ctx.moveTo(x,H*0.18);ctx.lineTo(x,H*0.82);ctx.stroke(); }
+        for(let y=H*0.18;y<H*0.82;y+=18){ ctx.beginPath();ctx.moveTo(W*0.18,y);ctx.lineTo(W*0.82,y);ctx.stroke(); }
+        // Дороги
+        ctx.fillStyle='#332e22'; ctx.fillRect(0,H/2-5,W,10); ctx.fillRect(W/2-5,0,10,H);
+        // Внешние крепостные стены
+        ctx.fillStyle='#8a7e60'; ctx.fillRect(8,8,W-16,12); ctx.fillRect(8,H-20,W-16,12);
+        ctx.fillRect(8,8,12,H-16); ctx.fillRect(W-20,8,12,H-16);
+        // Угловые башни
+        ctx.fillStyle='#5a5040'; for(const [x,y] of [[6,6],[W-30,6],[6,H-30],[W-30,H-30]]) ctx.fillRect(x,y,24,24);
+        // Ворота (просветы в стенах)
+        ctx.fillStyle='#1e3a08';
+        ctx.fillRect(W/2-14,8,28,12); ctx.fillRect(W/2-14,H-20,28,12);
+        ctx.fillRect(8,H/2-14,12,28); ctx.fillRect(W-20,H/2-14,12,28);
+        // Центральное здание
+        ctx.fillStyle='#7a6a52'; ctx.fillRect(W/2-30,H/2-30,60,60);
+        ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.strokeRect(W/2-30,H/2-30,60,60);
+        ctx.fillStyle='#cc2200'; ctx.fillRect(W/2-3,H/2-25,6,12); // флаг
+        // Контейнеры по углам
+        ctx.fillStyle='#4a7a3a';
+        for(const [x,y] of [[W*0.25,H*0.25],[W*0.75,H*0.25],[W*0.25,H*0.75],[W*0.75,H*0.75]]) ctx.fillRect(x-12,y-12,24,24);
+        // Деревья
+        ctx.fillStyle='#1e4808';
+        for(let i=0;i<14;i++){
+            const tx=W*0.10+Math.random()*W*0.08, ty=H*0.10+Math.random()*H*0.80;
+            ctx.beginPath(); ctx.arc(tx,ty,3,0,Math.PI*2); ctx.fill();
+            const tx2=W*0.92-Math.random()*W*0.06; const ty2=H*0.10+Math.random()*H*0.80;
+            ctx.beginPath(); ctx.arc(tx2,ty2,3,0,Math.PI*2); ctx.fill();
+        }
+        ctx.font='bold 14px Oswald'; ctx.fillStyle='rgba(255,255,255,0.85)';
+        ctx.textAlign='left'; ctx.fillText('КАРТА: ПЕСОЧНИЦА',12,H-12);
+    } else {
+        // Тишина — песок
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,'#d4b87a'); g.addColorStop(1,'#a08850');
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        // Шум
+        for(let i=0;i<300;i++){
+            ctx.fillStyle=`rgba(${100+Math.random()*50|0},${80+Math.random()*40|0},${40+Math.random()*30|0},0.4)`;
+            ctx.fillRect(Math.random()*W,Math.random()*H,2,1);
+        }
+        // Дороги асфальт
+        ctx.fillStyle='#403828'; ctx.fillRect(0,H/2-6,W,12); ctx.fillRect(W/2-6,0,12,H);
+        // Внешние стены
+        ctx.fillStyle='#9a8e72'; ctx.fillRect(10,10,W-20,8); ctx.fillRect(10,H-18,W-20,8);
+        ctx.fillRect(10,10,8,H-20); ctx.fillRect(W-18,10,8,H-20);
+        // Угловые башни
+        ctx.fillStyle='#6a5e44'; for(const [x,y] of [[6,6],[W-26,6],[6,H-26],[W-26,H-26]]) ctx.fillRect(x,y,20,20);
+        // Здания
+        ctx.fillStyle='#7a3020';
+        ctx.fillRect(W*0.20,H*0.20,30,40); ctx.fillRect(W*0.70,H*0.20,30,40);
+        ctx.fillRect(W*0.20,H*0.65,30,30); ctx.fillRect(W*0.70,H*0.65,30,30);
+        ctx.strokeStyle='#000'; ctx.lineWidth=1;
+        ctx.strokeRect(W*0.20,H*0.20,30,40); ctx.strokeRect(W*0.70,H*0.20,30,40);
+        ctx.strokeRect(W*0.20,H*0.65,30,30); ctx.strokeRect(W*0.70,H*0.65,30,30);
+        // Центральное здание
+        ctx.fillStyle='#8a7050'; ctx.fillRect(W/2-22,H/2-22,44,44);
+        ctx.strokeStyle='#000'; ctx.strokeRect(W/2-22,H/2-22,44,44);
+        // Бочки и ящики
+        ctx.fillStyle='#5a3a20';
+        for(let i=0;i<10;i++){ ctx.beginPath();ctx.arc(W*0.25+Math.random()*W*0.5,H*0.40+Math.random()*H*0.20,3,0,Math.PI*2);ctx.fill(); }
+        ctx.fillStyle='#7a5a2a';
+        for(let i=0;i<8;i++){ ctx.fillRect(W*0.30+Math.random()*W*0.4,H*0.30+Math.random()*H*0.4,6,6); }
+        // Деревья
+        ctx.fillStyle='#1e4808';
+        for(let i=0;i<8;i++){ ctx.beginPath();ctx.arc(20+Math.random()*(W-40),20+Math.random()*40,3,0,Math.PI*2);ctx.fill(); }
+        ctx.font='bold 14px Oswald'; ctx.fillStyle='rgba(255,255,255,0.85)';
+        ctx.textAlign='left'; ctx.fillText('КАРТА: ТИШИНА',12,H-12);
+    }
 }
  
 let selectedMode='dm';
@@ -495,29 +625,158 @@ const texWallConcrete=makePixelTexture({
 });
  
 function makeCamoTexture(hex) {
-    const c=document.createElement('canvas'); c.width=128; c.height=128;
+    // Текстура брони танка в стиле Танки Онлайн 2012 — стальные плиты с заклёпками
+    const SZ=256;
+    const c=document.createElement('canvas'); c.width=SZ; c.height=SZ;
     const ctx=c.getContext('2d');
     let r=parseInt(hex.slice(1,3),16)||76, g=parseInt(hex.slice(3,5),16)||168, b=parseInt(hex.slice(5,7),16)||0;
-    ctx.fillStyle=hex; ctx.fillRect(0,0,128,128);
-    for(let i=0;i<30;i++) {
-        ctx.fillStyle=`rgb(${Math.max(0,r-60)},${Math.max(0,g-60)},${Math.max(0,b-60)})`;
-        const s=(Math.floor(Math.random()*2)+1)*16;
-        ctx.fillRect(Math.floor(Math.random()*8)*16,Math.floor(Math.random()*8)*16,s,s);
+    const rgb=(dr=0,dg=0,db=0,a=1)=>`rgba(${Math.max(0,Math.min(255,r+dr))},${Math.max(0,Math.min(255,g+dr+dg))},${Math.max(0,Math.min(255,b+dr+db))},${a})`;
+
+    // 1) Базовый градиент с лёгкой неоднородностью освещения
+    const grad=ctx.createLinearGradient(0,0,SZ,SZ);
+    grad.addColorStop(0,rgb(20,20,20));
+    grad.addColorStop(0.5,hex);
+    grad.addColorStop(1,rgb(-25,-25,-25));
+    ctx.fillStyle=grad; ctx.fillRect(0,0,SZ,SZ);
+
+    // 2) Камуфляжные пятна (по типу краски)
+    const camoSpots=22;
+    for(let i=0;i<camoSpots;i++) {
+        ctx.fillStyle=rgb(-40-Math.random()*30,-40-Math.random()*30,-40-Math.random()*30,0.45);
+        const cx=Math.random()*SZ, cy=Math.random()*SZ, rd=18+Math.random()*30;
+        ctx.beginPath();
+        ctx.ellipse(cx,cy,rd,rd*(0.5+Math.random()*0.7),Math.random()*Math.PI,0,Math.PI*2);
+        ctx.fill();
     }
-    for(let i=0;i<20;i++) {
-        ctx.fillStyle=`rgb(${Math.min(255,r+35)},${Math.min(255,g+35)},${Math.min(255,b+35)})`;
-        ctx.fillRect(Math.floor(Math.random()*16)*8,Math.floor(Math.random()*16)*8,8,8);
+    for(let i=0;i<14;i++) {
+        ctx.fillStyle=rgb(25+Math.random()*20,25+Math.random()*20,25+Math.random()*20,0.35);
+        const cx=Math.random()*SZ, cy=Math.random()*SZ, rd=12+Math.random()*22;
+        ctx.beginPath();
+        ctx.ellipse(cx,cy,rd,rd*(0.5+Math.random()*0.7),Math.random()*Math.PI,0,Math.PI*2);
+        ctx.fill();
     }
-    // Пиксельные точки для зернистости
+
+    // 3) Бронепанели — горизонтальные швы между плитами
+    ctx.strokeStyle='rgba(0,0,0,0.65)'; ctx.lineWidth=2;
+    const plateRows=[0.32,0.62];
+    for(const py of plateRows) {
+        const y=Math.floor(py*SZ);
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(SZ,y); ctx.stroke();
+        // Подсветка сверху от шва
+        ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(0,y-1); ctx.lineTo(SZ,y-1); ctx.stroke();
+        ctx.strokeStyle='rgba(0,0,0,0.65)'; ctx.lineWidth=2;
+    }
+    // Вертикальные швы между секциями
+    const plateCols=[0.40,0.78];
+    for(const px of plateCols) {
+        const x=Math.floor(px*SZ);
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,SZ); ctx.stroke();
+    }
+
+    // 4) Заклёпки (rivets) — характерная деталь брони ТО
+    const drawRivet=(x,y,size=3)=>{
+        // Темный кружок-углубление
+        ctx.fillStyle='rgba(0,0,0,0.55)';
+        ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.fill();
+        // Светлая заклёпка сверху
+        ctx.fillStyle=rgb(40,40,40,0.85);
+        ctx.beginPath(); ctx.arc(x-0.5,y-0.5,size*0.65,0,Math.PI*2); ctx.fill();
+        // Микро-блик
+        ctx.fillStyle='rgba(255,255,255,0.45)';
+        ctx.beginPath(); ctx.arc(x-1,y-1,size*0.22,0,Math.PI*2); ctx.fill();
+    };
+    // Заклёпки по швам
+    for(const py of plateRows) {
+        const y=Math.floor(py*SZ);
+        for(let x=12;x<SZ;x+=18) drawRivet(x+Math.random()*2,y,3);
+    }
+    // Заклёпки по углам секций
+    for(const py of [0.05,0.95]) for(const px of [0.06,0.40,0.78,0.95]) {
+        drawRivet(Math.floor(px*SZ),Math.floor(py*SZ),3.2);
+    }
+
+    // 5) Царапины и потёртости по краям панелей
     for(let i=0;i<60;i++) {
-        const dr=Math.floor(Math.random()*70)-35;
-        ctx.fillStyle=`rgb(${Math.max(0,Math.min(255,r+dr))},${Math.max(0,Math.min(255,g+dr))},${Math.max(0,Math.min(255,b+dr))})`;
-        ctx.fillRect(Math.floor(Math.random()*128),Math.floor(Math.random()*128),4,4);
+        const sx=Math.random()*SZ, sy=Math.random()*SZ;
+        ctx.strokeStyle=`rgba(${Math.random()<0.5?180:30},${Math.random()<0.5?180:30},${Math.random()<0.5?180:30},${0.10+Math.random()*0.15})`;
+        ctx.lineWidth=0.7+Math.random();
+        ctx.beginPath(); ctx.moveTo(sx,sy);
+        ctx.lineTo(sx+(Math.random()-0.5)*22,sy+(Math.random()-0.5)*8);
+        ctx.stroke();
     }
+    // 6) Грязные потёки (длинные тёмные полосы вниз)
+    for(let i=0;i<5;i++) {
+        const sx=Math.random()*SZ;
+        const grad2=ctx.createLinearGradient(sx,0,sx,SZ);
+        grad2.addColorStop(0,'rgba(0,0,0,0)');
+        grad2.addColorStop(0.5,'rgba(40,30,20,0.20)');
+        grad2.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=grad2; ctx.fillRect(sx-2,0,3+Math.random()*4,SZ);
+    }
+    // 7) Тёмная виньетка по краям — добавляет глубины
+    const vg=ctx.createRadialGradient(SZ/2,SZ/2,SZ*0.3,SZ/2,SZ/2,SZ*0.72);
+    vg.addColorStop(0,'rgba(0,0,0,0)');
+    vg.addColorStop(1,'rgba(0,0,0,0.32)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,SZ,SZ);
+
     const tex=new THREE.CanvasTexture(c);
     tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
-    tex.magFilter=THREE.NearestFilter;
+    tex.anisotropy=4;
     return tex;
+}
+
+// ──── Текстура брони пушек/башен — тёмный металл с щитом, без покраски ────
+let _gunMetalTex=null;
+function makeGunMetalTexture() {
+    if(_gunMetalTex) return _gunMetalTex;
+    const SZ=256;
+    const c=document.createElement('canvas'); c.width=SZ; c.height=SZ;
+    const ctx=c.getContext('2d');
+    // Базовый тёмно-стальной градиент
+    const grad=ctx.createLinearGradient(0,0,0,SZ);
+    grad.addColorStop(0,'#3a3a3a');
+    grad.addColorStop(0.45,'#2a2a2a');
+    grad.addColorStop(1,'#1e1e1e');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,SZ,SZ);
+    // Горизонтальные полосы прокатки
+    for(let y=0;y<SZ;y+=2) {
+        ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.04})`;
+        ctx.fillRect(0,y,SZ,1);
+    }
+    // Несколько швов (как литая броня — мало швов)
+    ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,SZ*0.5); ctx.lineTo(SZ,SZ*0.5); ctx.stroke();
+    // Заклёпки по линии шва
+    for(let x=10;x<SZ;x+=22) {
+        ctx.fillStyle='rgba(0,0,0,0.6)';
+        ctx.beginPath(); ctx.arc(x,SZ*0.5,3,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#666';
+        ctx.beginPath(); ctx.arc(x-0.5,SZ*0.5-0.5,2,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.5)';
+        ctx.beginPath(); ctx.arc(x-1,SZ*0.5-1,0.7,0,Math.PI*2); ctx.fill();
+    }
+    // Царапины
+    for(let i=0;i<80;i++) {
+        const sx=Math.random()*SZ, sy=Math.random()*SZ;
+        ctx.strokeStyle=`rgba(${Math.random()<0.5?200:50},${Math.random()<0.5?200:50},${Math.random()<0.5?200:50},${0.08+Math.random()*0.1})`;
+        ctx.lineWidth=0.6;
+        ctx.beginPath(); ctx.moveTo(sx,sy);
+        ctx.lineTo(sx+(Math.random()-0.5)*16,sy+(Math.random()-0.5)*4);
+        ctx.stroke();
+    }
+    // Ржавые пятна по краям (немного)
+    for(let i=0;i<4;i++) {
+        ctx.fillStyle=`rgba(120,60,20,${0.15+Math.random()*0.15})`;
+        const cx=Math.random()*SZ, cy=Math.random()*SZ, rd=4+Math.random()*8;
+        ctx.beginPath();
+        ctx.ellipse(cx,cy,rd,rd*0.5,Math.random()*Math.PI,0,Math.PI*2);
+        ctx.fill();
+    }
+    _gunMetalTex=new THREE.CanvasTexture(c);
+    _gunMetalTex.wrapS=_gunMetalTex.wrapT=THREE.RepeatWrapping;
+    _gunMetalTex.anisotropy=4;
+    return _gunMetalTex;
 }
  
 // ==========================================
@@ -544,92 +803,395 @@ function init3D() {
  
     minimapCtx=document.getElementById('minimap-canvas').getContext('2d');
  
-    // ======= ГАРАЖ — АНГАР ТО 2012 =======
+    // ======= ГАРАЖ — АНГАР ТО 2012 (РАСШИРЕННАЯ ВЕРСИЯ) =======
     sceneGar=new THREE.Scene();
-    sceneGar.background=new THREE.Color(0x141a14);
-    sceneGar.fog=new THREE.Fog(0x141a14,15,40);
- 
-    const gAmb=new THREE.AmbientLight(0xffffff,0.7);
+    sceneGar.background=new THREE.Color(0x0e1410);
+    sceneGar.fog=new THREE.Fog(0x0e1410,18,46);
+
+    // Освещение — многоуровневое, кинематографичное
+    const gAmb=new THREE.AmbientLight(0x90a0b8,0.55);
     sceneGar.add(gAmb);
- 
-    // Основной направленный свет (как прожектор в ангаре)
-    const gDir=new THREE.DirectionalLight(0xffffee,1.2);
-    gDir.position.set(5,12,6);
-    sceneGar.add(gDir);
- 
-    // Голубоватый контровый свет
-    const gBack=new THREE.DirectionalLight(0x88aabb,0.4);
-    gBack.position.set(-5,6,-8);
-    sceneGar.add(gBack);
- 
-    // Тёмный пол с металлическими плитами
-    const garFloorTex=texMetal.clone(); garFloorTex.repeat.set(12,12); garFloorTex.needsUpdate=true;
-    const garFloor=new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshLambertMaterial({map:garFloorTex,color:0x1e1e1e}));
+    // Главный прожектор сверху (KEY)
+    const gKey=new THREE.DirectionalLight(0xfff4d8,1.4);
+    gKey.position.set(6,14,8); sceneGar.add(gKey);
+    // Контровый — зеленоватый, фирменный цвет ТО (RIM)
+    const gRim=new THREE.DirectionalLight(0x6cce00,0.55);
+    gRim.position.set(-6,8,-12); sceneGar.add(gRim);
+    // Подсветка снизу — холодная (FILL)
+    const gFill=new THREE.PointLight(0x4488ff,0.6,18);
+    gFill.position.set(0,1.0,3); sceneGar.add(gFill);
+    // Боковая жёлтая
+    const gSide=new THREE.PointLight(0xffaa44,0.45,15);
+    gSide.position.set(-7,3,4); sceneGar.add(gSide);
+
+    // ── ПОЛ ─ полированный металл с подсветкой ─────────────────────────
+    function makeGarageFloorTex() {
+        const c=document.createElement('canvas'); c.width=512; c.height=512;
+        const ctx=c.getContext('2d');
+        // Базовый тёмный градиент
+        const g=ctx.createRadialGradient(256,256,40,256,256,400);
+        g.addColorStop(0,'#2a3024'); g.addColorStop(0.4,'#1a1f18'); g.addColorStop(1,'#080a08');
+        ctx.fillStyle=g; ctx.fillRect(0,0,512,512);
+        // Плиты 128×128
+        ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=4;
+        for(let i=0;i<=512;i+=128){
+            ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,512); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(512,i); ctx.stroke();
+        }
+        // Тонкие швы 64×64
+        ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1.5;
+        for(let i=0;i<=512;i+=64){
+            ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,512); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(512,i); ctx.stroke();
+        }
+        // Заклёпки
+        for(let x=64;x<512;x+=128) for(let y=64;y<512;y+=128) {
+            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#555'; ctx.beginPath(); ctx.arc(x-0.7,y-0.7,2,0,Math.PI*2); ctx.fill();
+        }
+        // Тонкие отражения / блики
+        for(let i=0;i<60;i++){
+            ctx.fillStyle=`rgba(150,180,150,${Math.random()*0.05})`;
+            ctx.fillRect(Math.random()*512,Math.random()*512,3+Math.random()*8,1);
+        }
+        // Тёмная виньетка
+        const vg=ctx.createRadialGradient(256,256,180,256,256,360);
+        vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.35)');
+        ctx.fillStyle=vg; ctx.fillRect(0,0,512,512);
+        return new THREE.CanvasTexture(c);
+    }
+    const garFloorTex=makeGarageFloorTex();
+    garFloorTex.wrapS=garFloorTex.wrapT=THREE.RepeatWrapping;
+    garFloorTex.repeat.set(2,2);
+    garFloorTex.anisotropy=4;
+    const garFloor=new THREE.Mesh(new THREE.PlaneGeometry(60,60), new THREE.MeshPhongMaterial({map:garFloorTex,shininess:35,specular:0x333333}));
     garFloor.rotation.x=-Math.PI/2; sceneGar.add(garFloor);
- 
+
     // Рельсы (2 параллельные)
-    const railMat=new THREE.MeshLambertMaterial({color:0xc8b400});
+    const railMat=new THREE.MeshPhongMaterial({color:0xc8b400,shininess:80,specular:0x999900});
     for(let ox of [-1.4,1.4]) {
         const rail=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.06,20), railMat);
-        rail.position.set(ox,0.03,0); sceneGar.add(rail);
+        rail.position.set(ox,0.04,0); sceneGar.add(rail);
     }
     // Шпалы
-    const tieMat=new THREE.MeshLambertMaterial({color:0x3a2810});
+    const tieMat=new THREE.MeshPhongMaterial({color:0x3a2810,shininess:8});
     for(let z=-8;z<=8;z+=0.9) {
         const tie=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.04,0.22),tieMat);
         tie.position.set(0,0.02,z); sceneGar.add(tie);
     }
- 
-    // Платформа подиум
-    const platMat=new THREE.MeshLambertMaterial({color:0x1a1a1a});
-    const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.8,4.2,0.45,32),platMat);
-    platform.position.y=0.22; sceneGar.add(platform);
-    const platTop=new THREE.Mesh(new THREE.CylinderGeometry(3.6,3.8,0.07,32),new THREE.MeshLambertMaterial({color:0x282828}));
-    platTop.position.y=0.46; sceneGar.add(platTop);
- 
-    // Зелёное светящееся кольцо
-    const ringGeo=new THREE.TorusGeometry(3.9,0.06,8,64);
+    // Жёлто-чёрные предупреждающие полосы вдоль рельс
+    const warnTex=document.createElement('canvas'); warnTex.width=64; warnTex.height=16;
+    {
+        const c2=warnTex.getContext('2d');
+        c2.fillStyle='#ffcc00'; c2.fillRect(0,0,64,16);
+        c2.fillStyle='#000000';
+        for(let i=0;i<64;i+=16){ c2.beginPath(); c2.moveTo(i,0); c2.lineTo(i+16,16); c2.lineTo(i+8,16); c2.lineTo(i,0); c2.fill(); }
+    }
+    const warnT=new THREE.CanvasTexture(warnTex); warnT.wrapS=warnT.wrapT=THREE.RepeatWrapping; warnT.repeat.set(8,1);
+    for(let zx of [-2.2,2.2]) {
+        const warn=new THREE.Mesh(new THREE.PlaneGeometry(20,0.4),new THREE.MeshBasicMaterial({map:warnT}));
+        warn.rotation.x=-Math.PI/2; warn.position.set(zx,0.05,0); sceneGar.add(warn);
+    }
+
+    // ── ПОДИУМ — улучшенный ──────────────────────────────────────────
+    const platMat=new THREE.MeshPhongMaterial({color:0x141414,shininess:40,specular:0x444444});
+    const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.8,4.3,0.50,48),platMat);
+    platform.position.y=0.25; sceneGar.add(platform);
+    // Декоративные грани подиума — выступающие сегменты
+    for(let s=0;s<8;s++) {
+        const ang=s*Math.PI/4;
+        const seg=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.4),new THREE.MeshPhongMaterial({color:0x222222,shininess:30}));
+        seg.position.set(Math.cos(ang)*4.0,0.25,Math.sin(ang)*4.0);
+        seg.rotation.y=-ang; sceneGar.add(seg);
+    }
+    // Верхняя плита подиума — тёмный шлифованный металл
+    const platTop=new THREE.Mesh(new THREE.CylinderGeometry(3.55,3.85,0.10,48),new THREE.MeshPhongMaterial({color:0x282c28,shininess:55,specular:0x888888}));
+    platTop.position.y=0.51; sceneGar.add(platTop);
+    // Центральный круг с эмблемой ТО
+    function makeTOEmblemTex() {
+        const c=document.createElement('canvas'); c.width=256; c.height=256;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle='#0a0f0a'; ctx.fillRect(0,0,256,256);
+        // Внешнее зелёное кольцо
+        ctx.strokeStyle='#8eff00'; ctx.lineWidth=8;
+        ctx.beginPath(); ctx.arc(128,128,110,0,Math.PI*2); ctx.stroke();
+        ctx.strokeStyle='#5aaa00'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(128,128,96,0,Math.PI*2); ctx.stroke();
+        // Текст
+        ctx.font='bold 38px Oswald,Arial';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#8eff00';
+        ctx.shadowColor='#6cce00'; ctx.shadowBlur=12;
+        ctx.fillText('TANKI',128,98);
+        ctx.fillText('ONLINE',128,158);
+        ctx.shadowBlur=0;
+        // Звезда
+        ctx.fillStyle='#ffcc00';
+        ctx.font='80px Arial';
+        ctx.fillText('★',128,130);
+        return new THREE.CanvasTexture(c);
+    }
+    const emblemPlate=new THREE.Mesh(new THREE.CircleGeometry(2.4,32),new THREE.MeshBasicMaterial({map:makeTOEmblemTex(),transparent:true,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4}));
+    emblemPlate.rotation.x=-Math.PI/2; emblemPlate.position.y=0.561; sceneGar.add(emblemPlate);
+
+    // Светящееся внешнее кольцо платформы (анимируется)
+    const ringGeo=new THREE.TorusGeometry(3.95,0.08,8,80);
     const ring=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0x8eff00}));
-    ring.rotation.x=-Math.PI/2; ring.position.y=0.43; sceneGar.add(ring);
- 
-    // Внутренний круг
-    const innerRing=new THREE.Mesh(new THREE.TorusGeometry(3.5,0.03,6,48),new THREE.MeshBasicMaterial({color:0x5aaa00}));
-    innerRing.rotation.x=-Math.PI/2; innerRing.position.y=0.44; sceneGar.add(innerRing);
- 
-    // Стены ангара
-    const wallMat=new THREE.MeshLambertMaterial({color:0x0a0a0a});
-    const bWall=new THREE.Mesh(new THREE.PlaneGeometry(50,16),wallMat); bWall.position.set(0,8,-20); sceneGar.add(bWall);
-    const lWall=new THREE.Mesh(new THREE.PlaneGeometry(40,16),wallMat); lWall.rotation.y=Math.PI/2; lWall.position.set(-20,8,0); sceneGar.add(lWall);
-    const rWall=new THREE.Mesh(new THREE.PlaneGeometry(40,16),wallMat); rWall.rotation.y=-Math.PI/2; rWall.position.set(20,8,0); sceneGar.add(rWall);
-    const ceil=new THREE.Mesh(new THREE.PlaneGeometry(50,40),new THREE.MeshLambertMaterial({color:0x060606}));
-    ceil.rotation.x=Math.PI/2; ceil.position.y=16; sceneGar.add(ceil);
- 
-    // Потолочные лампы
-    const lampMat=new THREE.MeshBasicMaterial({color:0xffffe8});
-    for(let x of [-9,0,9]) {
-        const lamp=new THREE.Mesh(new THREE.BoxGeometry(3,0.12,1.4),lampMat);
-        lamp.position.set(x,15.85,2); sceneGar.add(lamp);
-        // Световой конус (симуляция)
-        const lSpot=new THREE.PointLight(0xffffee,0.8,20);
-        lSpot.position.set(x,14,2); sceneGar.add(lSpot);
+    ring.rotation.x=-Math.PI/2; ring.position.y=0.48; ring.userData.isPulseRing=true; sceneGar.add(ring);
+    // Второе кольцо ближе к центру
+    const innerRing=new THREE.Mesh(new THREE.TorusGeometry(3.55,0.04,6,64),new THREE.MeshBasicMaterial({color:0x5aaa00}));
+    innerRing.rotation.x=-Math.PI/2; innerRing.position.y=0.49; sceneGar.add(innerRing);
+    // Анимированные сегменты — 12 точек по кольцу
+    const ringDots=[];
+    for(let i=0;i<24;i++) {
+        const ang=i*Math.PI*2/24;
+        const dot=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.05,0.13),new THREE.MeshBasicMaterial({color:0x8eff00}));
+        dot.position.set(Math.cos(ang)*4.15,0.50,Math.sin(ang)*4.15);
+        dot.userData.angle=ang; sceneGar.add(dot); ringDots.push(dot);
     }
- 
-    // Декоративные панели на задней стене
-    for(let x=-10;x<=10;x+=5) {
-        const panel=new THREE.Mesh(new THREE.BoxGeometry(4,10,0.18),new THREE.MeshLambertMaterial({color:0x141414}));
-        panel.position.set(x,5,-19.85); sceneGar.add(panel);
-        const stripe=new THREE.Mesh(new THREE.BoxGeometry(3.8,0.07,0.2),new THREE.MeshBasicMaterial({color:0x6cce00}));
-        stripe.position.set(x,9.5,-19.82); sceneGar.add(stripe);
+    sceneGar.userData.ringDots=ringDots;
+
+    // ── СТЕНЫ — высокие, с панелями и подсветкой ──────────────────────
+    const wallPanelMat=new THREE.MeshPhongMaterial({color:0x0e120e,shininess:8,specular:0x222222});
+    const wallTrimMat =new THREE.MeshPhongMaterial({color:0x1a1f16,shininess:18});
+    const wallStripMat=new THREE.MeshBasicMaterial({color:0x6cce00});
+    // Задняя стена
+    const bWall=new THREE.Mesh(new THREE.PlaneGeometry(60,18),wallPanelMat);
+    bWall.position.set(0,9,-22); sceneGar.add(bWall);
+    // Левая стена
+    const lWall=new THREE.Mesh(new THREE.PlaneGeometry(48,18),wallPanelMat);
+    lWall.rotation.y=Math.PI/2; lWall.position.set(-24,9,0); sceneGar.add(lWall);
+    // Правая стена
+    const rWall=new THREE.Mesh(new THREE.PlaneGeometry(48,18),wallPanelMat);
+    rWall.rotation.y=-Math.PI/2; rWall.position.set(24,9,0); sceneGar.add(rWall);
+    // Потолок
+    const ceil=new THREE.Mesh(new THREE.PlaneGeometry(60,48),new THREE.MeshPhongMaterial({color:0x080a08,shininess:5}));
+    ceil.rotation.x=Math.PI/2; ceil.position.y=18; sceneGar.add(ceil);
+    // Балки потолка (горизонтальные)
+    for(let z=-18;z<=18;z+=6) {
+        const beam=new THREE.Mesh(new THREE.BoxGeometry(48,0.5,0.6),new THREE.MeshPhongMaterial({color:0x1a1f16,shininess:15}));
+        beam.position.set(0,17.7,z); sceneGar.add(beam);
     }
- 
-    // Ящики-декорации
+    // Балки потолка (продольные)
+    for(let x=-20;x<=20;x+=10) {
+        const beam=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.5,48),new THREE.MeshPhongMaterial({color:0x1a1f16,shininess:15}));
+        beam.position.set(x,17.7,0); sceneGar.add(beam);
+    }
+
+    // ── ОГРОМНЫЙ ЛОГО-БАННЕР "TANKI ONLINE" НА ЗАДНЕЙ СТЕНЕ ────────────
+    function makeBannerTex() {
+        const c=document.createElement('canvas'); c.width=1024; c.height=256;
+        const ctx=c.getContext('2d');
+        // Чёрный фон
+        const g=ctx.createLinearGradient(0,0,0,256);
+        g.addColorStop(0,'#0a0f0a'); g.addColorStop(0.5,'#1a2008'); g.addColorStop(1,'#050805');
+        ctx.fillStyle=g; ctx.fillRect(0,0,1024,256);
+        // Зелёная неоновая рамка
+        ctx.strokeStyle='#8eff00'; ctx.lineWidth=8;
+        ctx.strokeRect(6,6,1012,244);
+        ctx.strokeStyle='#5aaa00'; ctx.lineWidth=2;
+        ctx.strokeRect(18,18,988,220);
+        // Главный текст с неоновым свечением
+        ctx.font='bold 130px Oswald,Arial';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.shadowColor='#8eff00'; ctx.shadowBlur=30;
+        ctx.fillStyle='#a4ff4a'; ctx.fillText('TANKI ONLINE',512,116);
+        ctx.shadowBlur=0;
+        // Под-текст
+        ctx.font='bold 36px Oswald,Arial';
+        ctx.fillStyle='#ffcc00'; ctx.shadowColor='#cc9900'; ctx.shadowBlur=8;
+        ctx.fillText('★ CLASSIC ★ 2012 ★',512,210);
+        ctx.shadowBlur=0;
+        // Декор — диагональные полосы по углам
+        ctx.strokeStyle='rgba(140,255,0,0.4)'; ctx.lineWidth=4;
+        for(let i=0;i<5;i++){
+            ctx.beginPath(); ctx.moveTo(30+i*15,30); ctx.lineTo(30,30+i*15); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(994-i*15,30); ctx.lineTo(994,30+i*15); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(30+i*15,226); ctx.lineTo(30,226-i*15); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(994-i*15,226); ctx.lineTo(994,226-i*15); ctx.stroke();
+        }
+        return new THREE.CanvasTexture(c);
+    }
+    const bannerMat=new THREE.MeshBasicMaterial({map:makeBannerTex(),transparent:true});
+    const banner=new THREE.Mesh(new THREE.PlaneGeometry(28,7),bannerMat);
+    banner.position.set(0,12.5,-21.85); sceneGar.add(banner);
+    // Подсветка баннера снизу
+    const bannerGlow=new THREE.PointLight(0x6cce00,0.7,12);
+    bannerGlow.position.set(0,9,-19); sceneGar.add(bannerGlow);
+    // Боковые маленькие баннеры на задней стене
+    function makeSideBanner(color) {
+        const c=document.createElement('canvas'); c.width=256; c.height=512;
+        const ctx=c.getContext('2d');
+        const g=ctx.createLinearGradient(0,0,0,512);
+        g.addColorStop(0,'#0a0f0a'); g.addColorStop(1,'#050805');
+        ctx.fillStyle=g; ctx.fillRect(0,0,256,512);
+        ctx.strokeStyle=color; ctx.lineWidth=4;
+        ctx.strokeRect(8,8,240,496);
+        // Вертикальная надпись
+        ctx.save();
+        ctx.translate(128,256); ctx.rotate(-Math.PI/2);
+        ctx.font='bold 48px Oswald';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=15;
+        ctx.fillText('★ ALTERNATIVA ★',0,0);
+        ctx.restore();
+        // Декор-полоса
+        ctx.fillStyle=color; ctx.fillRect(60,40,136,8); ctx.fillRect(60,464,136,8);
+        return new THREE.CanvasTexture(c);
+    }
+    for(let bx of [-12,12]) {
+        const sb=new THREE.Mesh(new THREE.PlaneGeometry(3.2,7),new THREE.MeshBasicMaterial({map:makeSideBanner(bx<0?'#ffcc00':'#00ccff'),transparent:true}));
+        sb.position.set(bx,8,-21.84); sceneGar.add(sb);
+    }
+
+    // ── ДЕКОРАТИВНЫЕ ПАНЕЛИ НА БОКОВЫХ СТЕНАХ ─────────────────────────
+    for(let z=-15;z<=15;z+=5) {
+        for(let sideX of [-23.84,23.84]) {
+            const panel=new THREE.Mesh(new THREE.BoxGeometry(0.16,9,3.8),new THREE.MeshPhongMaterial({color:0x141812,shininess:10}));
+            panel.position.set(sideX,5,z); sceneGar.add(panel);
+            // Зелёная полоска
+            const strip=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.10,3.6),new THREE.MeshBasicMaterial({color:0x6cce00}));
+            strip.position.set(sideX,9.0,z); sceneGar.add(strip);
+        }
+    }
+
+    // ── ПОТОЛОЧНЫЕ ЛАМПЫ ─ улучшенные ─────────────────────────────────
+    const lampHsg=new THREE.MeshPhongMaterial({color:0x222222,shininess:30});
+    for(let x of [-10,0,10]) {
+        // Корпус лампы
+        const housing=new THREE.Mesh(new THREE.BoxGeometry(4,0.5,2),lampHsg);
+        housing.position.set(x,17.4,0); sceneGar.add(housing);
+        // Светящаяся часть
+        const lamp=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.18,1.6),new THREE.MeshBasicMaterial({color:0xfff8d0}));
+        lamp.position.set(x,17.15,0); sceneGar.add(lamp);
+        // Источник света
+        const lSpot=new THREE.PointLight(0xfff8d0,0.7,24);
+        lSpot.position.set(x,15.5,0); sceneGar.add(lSpot);
+        // Подвес
+        for(let zi of [-3,3]) {
+            const wire=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.6,6),lampHsg);
+            wire.position.set(x,17.85,zi*0.3); sceneGar.add(wire);
+        }
+    }
+
+    // ── ВОЗДУХОВОДЫ НА ПОТОЛКЕ (декор) ────────────────────────────────
+    const ductMat=new THREE.MeshPhongMaterial({color:0x4a4a4a,shininess:30,specular:0x666666});
+    for(let z of [-12,12]) {
+        const duct=new THREE.Mesh(new THREE.BoxGeometry(40,1.0,1.2),ductMat);
+        duct.position.set(0,16.5,z); sceneGar.add(duct);
+        // Соединительные хомуты
+        for(let x=-18;x<=18;x+=6) {
+            const clamp=new THREE.Mesh(new THREE.BoxGeometry(0.4,1.1,1.3),new THREE.MeshPhongMaterial({color:0x222222,shininess:25}));
+            clamp.position.set(x,16.5,z); sceneGar.add(clamp);
+        }
+    }
+
+    // ── ЯЩИКИ-ДЕКОРАЦИИ (улучшенные) ──────────────────────────────────
     for(let ox of [-1,1]) {
-        const box=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.4,3.2),new THREE.MeshLambertMaterial({color:0x2a2a2a}));
-        box.position.set(ox*14,1.2,-12); sceneGar.add(box);
-        const stripe=new THREE.Mesh(new THREE.BoxGeometry(2.25,0.22,3.25),new THREE.MeshLambertMaterial({color:0xc8a800}));
-        stripe.position.set(ox*14,1.6,-12); sceneGar.add(stripe);
+        // Основной ящик
+        const boxMain=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.4,3.2),new THREE.MeshPhongMaterial({color:0x2a2a2a,shininess:15}));
+        boxMain.position.set(ox*16,1.2,-12); sceneGar.add(boxMain);
+        // Усиливающие планки — крест
+        const planeMat=new THREE.MeshPhongMaterial({color:0xc8a800,shininess:25});
+        const stripeH=new THREE.Mesh(new THREE.BoxGeometry(2.25,0.22,3.25),planeMat);
+        stripeH.position.set(ox*16,1.6,-12); sceneGar.add(stripeH);
+        const stripeV=new THREE.Mesh(new THREE.BoxGeometry(0.22,2.45,3.25),planeMat);
+        stripeV.position.set(ox*16,1.2,-12); sceneGar.add(stripeV);
+        // Крышка ящика
+        const boxLid=new THREE.Mesh(new THREE.BoxGeometry(2.3,0.18,3.3),new THREE.MeshPhongMaterial({color:0x1a1a1a,shininess:20}));
+        boxLid.position.set(ox*16,2.5,-12); sceneGar.add(boxLid);
+        // Эмблема "★" сверху
+        const embC=document.createElement('canvas'); embC.width=128; embC.height=128;
+        const eCtx=embC.getContext('2d');
+        eCtx.fillStyle='#c8a800'; eCtx.fillRect(0,0,128,128);
+        eCtx.fillStyle='#000'; eCtx.font='bold 88px Arial';
+        eCtx.textAlign='center'; eCtx.textBaseline='middle';
+        eCtx.fillText('★',64,68);
+        const embTex=new THREE.CanvasTexture(embC);
+        const embSpr=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),new THREE.MeshBasicMaterial({map:embTex,transparent:true}));
+        embSpr.rotation.x=-Math.PI/2; embSpr.position.set(ox*16,2.61,-12); sceneGar.add(embSpr);
     }
- 
+
+    // ── СТЕЛЛАЖИ С ЗАПЧАСТЯМИ ПО СТОРОНАМ ─────────────────────────────
+    for(let sxz of [-1,1]) {
+        // Стойка
+        const rack=new THREE.Mesh(new THREE.BoxGeometry(0.4,5,3),new THREE.MeshPhongMaterial({color:0x383838,shininess:25}));
+        rack.position.set(sxz*19,2.5,8); sceneGar.add(rack);
+        // 3 полки
+        for(let py of [1.0,2.5,4.0]) {
+            const shelf=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.12,2.8),new THREE.MeshPhongMaterial({color:0x222222,shininess:20}));
+            shelf.position.set(sxz*19.1,py,8); sceneGar.add(shelf);
+            // Предметы на полках
+            for(let oz of [-0.9,0,0.9]) {
+                const item=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.45,0.6),new THREE.MeshPhongMaterial({color:Math.random()<0.5?0x4a4a4a:0x8a6020,shininess:30}));
+                item.position.set(sxz*19.1,py+0.3,8+oz); sceneGar.add(item);
+            }
+        }
+    }
+
+    // ── ВРАЩАЮЩИЕСЯ ПРОЖЕКТОРЫ НА ПОТОЛКЕ ─────────────────────────────
+    const spotlightGroup=new THREE.Group();
+    for(let i=0;i<2;i++) {
+        const arm=new THREE.Mesh(new THREE.BoxGeometry(0.3,1.5,0.3),new THREE.MeshPhongMaterial({color:0x222222,shininess:25}));
+        arm.position.set(0,16.5,0); spotlightGroup.add(arm);
+        const head=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.4,1.2,12),new THREE.MeshPhongMaterial({color:0x444444,shininess:40}));
+        head.position.set(i===0?-2.5:2.5,15.6,0); head.rotation.x=Math.PI/2; head.rotation.z=Math.PI/2;
+        spotlightGroup.add(head);
+        // Лампа спереди
+        const headLamp=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.18,12),new THREE.MeshBasicMaterial({color:0xffeeaa}));
+        headLamp.position.set(i===0?-3.05:3.05,15.6,0); headLamp.rotation.z=Math.PI/2;
+        spotlightGroup.add(headLamp);
+    }
+    sceneGar.add(spotlightGroup);
+    sceneGar.userData.spotlightGroup=spotlightGroup;
+
+    // ── ГОЛОГРАФИЧЕСКИЙ ИНФО-ДИСПЛЕЙ (декор сбоку платформы) ──────────
+    function makeHoloTex() {
+        const c=document.createElement('canvas'); c.width=256; c.height=128;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle='rgba(0,30,60,0.85)'; ctx.fillRect(0,0,256,128);
+        // Сетка
+        ctx.strokeStyle='#00ccff'; ctx.lineWidth=0.8;
+        for(let i=0;i<256;i+=16){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,128);ctx.stroke(); }
+        for(let i=0;i<128;i+=16){ ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(256,i);ctx.stroke(); }
+        // Контур танка (силуэт)
+        ctx.fillStyle='#88ccff'; ctx.shadowColor='#00ccff'; ctx.shadowBlur=15;
+        // Корпус
+        ctx.fillRect(50,76,160,24);
+        // Гусеницы
+        ctx.fillRect(40,86,180,14);
+        // Башня
+        ctx.fillRect(95,52,70,28);
+        // Ствол
+        ctx.fillRect(155,62,60,8);
+        ctx.shadowBlur=0;
+        // Текст
+        ctx.font='bold 14px Courier New';
+        ctx.fillStyle='#00ffff'; ctx.fillText('TANK STATUS',10,16);
+        ctx.fillStyle='#88ff88'; ctx.fillText('READY',180,16);
+        return new THREE.CanvasTexture(c);
+    }
+    for(let hx of [-1,1]) {
+        const holo=new THREE.Mesh(new THREE.PlaneGeometry(3.2,1.6),new THREE.MeshBasicMaterial({map:makeHoloTex(),transparent:true,opacity:0.85,side:THREE.DoubleSide}));
+        holo.position.set(hx*5.5,2.2,0); holo.rotation.y=-hx*0.6; sceneGar.add(holo);
+        // Стойка под голограммой
+        const stand=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.18,1.4,8),new THREE.MeshPhongMaterial({color:0x222222,shininess:30}));
+        stand.position.set(hx*5.5,0.7,0); sceneGar.add(stand);
+        const standBase=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,0.18,12),new THREE.MeshPhongMaterial({color:0x111111,shininess:25}));
+        standBase.position.set(hx*5.5,0.09,0); sceneGar.add(standBase);
+    }
+
+    // ── ЛЕНТОЧНЫЕ СВЕТОДИОДЫ ВДОЛЬ ПОЛА ────────────────────────────────
+    const ledStripMat=new THREE.MeshBasicMaterial({color:0x44ff44});
+    for(let zs of [-19,19]) {
+        const ledStrip=new THREE.Mesh(new THREE.BoxGeometry(40,0.06,0.18),ledStripMat);
+        ledStrip.position.set(0,0.08,zs); sceneGar.add(ledStrip);
+    }
+    for(let xs of [-19.5,19.5]) {
+        const ledStrip=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.06,38),ledStripMat);
+        ledStrip.position.set(xs,0.08,0); sceneGar.add(ledStrip);
+    }
+
     // ======= СЦЕНА БИТВЫ =======
     sceneBat=new THREE.Scene();
     mapGroup=new THREE.Group(); sceneBat.add(mapGroup);
@@ -960,11 +1522,13 @@ function buildTankMesh(hId,gId,pId) {
     const pData=DB.paints[pId]||DB.paints['green'];
     const hexColor='#'+pData.hex.toString(16).padStart(6,'0');
     const camoTex=makeCamoTexture(hexColor);
-    const bodyMat=new THREE.MeshLambertMaterial({map:camoTex});
-    const trackMat=new THREE.MeshLambertMaterial({color:0x0f0f0f});
-    const darkMat=new THREE.MeshLambertMaterial({color:0x1e1e1e});
-    const metalMat=new THREE.MeshLambertMaterial({color:0x4a4a4a});
-    const lightMat=new THREE.MeshLambertMaterial({color:0x787878});
+    const gunMetalTex=makeGunMetalTexture();
+    // Материалы — Phong даёт металлический блик, важный для стиля ТО
+    const bodyMat   = new THREE.MeshPhongMaterial({map:camoTex,shininess:18,specular:0x333333});
+    const trackMat  = new THREE.MeshPhongMaterial({color:0x0c0c0c,shininess:30,specular:0x222222});
+    const darkMat   = new THREE.MeshPhongMaterial({color:0x1c1c1c,shininess:22,specular:0x2a2a2a});
+    const metalMat  = new THREE.MeshPhongMaterial({map:gunMetalTex,color:0x6a6a6a,shininess:60,specular:0x555555});
+    const lightMat  = new THREE.MeshPhongMaterial({color:0x8a8a8a,shininess:50,specular:0x666666});
     const bodyGroup=new THREE.Group();
  
     // ── Z-FIGHTING FIX: helper ─────────────────────────────────────────────
@@ -972,10 +1536,10 @@ function buildTankMesh(hId,gId,pId) {
     function noZFight(mat, units=2) {
         mat.polygonOffset=true; mat.polygonOffsetFactor=1; mat.polygonOffsetUnits=units; return mat;
     }
-    const darkMatNZ  = noZFight(new THREE.MeshLambertMaterial({color:0x1e1e1e}));
-    const metalMatNZ = noZFight(new THREE.MeshLambertMaterial({color:0x4a4a4a}));
-    const lightMatNZ = noZFight(new THREE.MeshLambertMaterial({color:0x787878}));
-    const bodyMatNZ  = noZFight(new THREE.MeshLambertMaterial({map:camoTex}));
+    const darkMatNZ  = noZFight(new THREE.MeshPhongMaterial({color:0x1c1c1c,shininess:22,specular:0x2a2a2a}));
+    const metalMatNZ = noZFight(new THREE.MeshPhongMaterial({map:gunMetalTex,color:0x6a6a6a,shininess:60,specular:0x555555}));
+    const lightMatNZ = noZFight(new THREE.MeshPhongMaterial({color:0x8a8a8a,shininess:50,specular:0x666666}));
+    const bodyMatNZ  = noZFight(new THREE.MeshPhongMaterial({map:camoTex,shininess:18,specular:0x333333}));
 
     if(hc.type==='wasp') {
         // ── ОСА М0 — низкий обтекаемый скоростной корпус (Викинг-стиль) ──
@@ -2182,6 +2746,367 @@ function buildMap(mapType) {
         }
         addSign(0,-102,0); addSign(0,102,0); addSign(-102,0,Math.PI/2); addSign(102,0,Math.PI/2);
 
+    } else if(mapType==='kubiki') {
+        // ======= КУБИКИ — классическая арена ТО 2012 =======
+        sceneBat.background=new THREE.Color(0x8aabd0);
+        sceneBat.fog=new THREE.FogExp2(0x9ab8d8,0.004);
+
+        const sunLight=new THREE.DirectionalLight(0xfff0d0,1.15);
+        sunLight.position.set(60,140,40); sceneBat.add(sunLight);
+        const ambK=new THREE.AmbientLight(0xddeeff,0.7); sceneBat.add(ambK);
+        const rimK=new THREE.DirectionalLight(0x88aacc,0.45);
+        rimK.position.set(-80,60,-100); sceneBat.add(rimK);
+
+        // ── ТЕКСТУРЫ ──────────────────────────────────────────────────────
+        function makeArenaFloorTex() {
+            const c=document.createElement('canvas'); c.width=256; c.height=256;
+            const ctx=c.getContext('2d');
+            ctx.fillStyle='#7a7268'; ctx.fillRect(0,0,256,256);
+            // Большие плиты 64×64
+            ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=2.5;
+            for(let i=0;i<=256;i+=64){
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,256); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(256,i); ctx.stroke();
+            }
+            // Мини-плитки внутри 32×32
+            ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+            for(let i=0;i<=256;i+=32){
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,256); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(256,i); ctx.stroke();
+            }
+            // Шум / зернистость
+            for(let i=0;i<300;i++){
+                ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;
+                ctx.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1);
+            }
+            // Светлые блики на плитках
+            for(let i=0;i<60;i++){
+                ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.04})`;
+                ctx.fillRect(Math.random()*256,Math.random()*256,3,1);
+            }
+            const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(20,20); t.anisotropy=4; return t;
+        }
+        function makeKubeTex(baseR=210,baseG=200,baseB=180) {
+            const c=document.createElement('canvas'); c.width=256; c.height=256;
+            const ctx=c.getContext('2d');
+            // Бетонная основа с градиентом
+            const grad=ctx.createLinearGradient(0,0,0,256);
+            grad.addColorStop(0,`rgb(${baseR},${baseG},${baseB})`);
+            grad.addColorStop(0.5,`rgb(${baseR-15},${baseG-15},${baseB-15})`);
+            grad.addColorStop(1,`rgb(${baseR-30},${baseG-30},${baseB-30})`);
+            ctx.fillStyle=grad; ctx.fillRect(0,0,256,256);
+            // Пятна разного оттенка
+            for(let i=0;i<40;i++){
+                ctx.fillStyle=`rgba(${baseR-30+Math.random()*50},${baseG-30+Math.random()*50},${baseB-30+Math.random()*50},${0.15+Math.random()*0.15})`;
+                const rd=8+Math.random()*22;
+                ctx.beginPath();
+                ctx.ellipse(Math.random()*256,Math.random()*256,rd,rd*0.7,Math.random()*Math.PI,0,Math.PI*2);
+                ctx.fill();
+            }
+            // Швы (большая граница плит на кубе)
+            ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=3;
+            ctx.strokeRect(2,2,252,252);
+            // Чёрные полосы по краям — рамка
+            ctx.fillStyle='rgba(0,0,0,0.55)';
+            ctx.fillRect(0,0,256,4); ctx.fillRect(0,252,256,4);
+            ctx.fillRect(0,0,4,256); ctx.fillRect(252,0,4,256);
+            // Зернистый шум
+            for(let i=0;i<250;i++){
+                ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.08})`;
+                ctx.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1);
+            }
+            // Светлые царапины
+            for(let i=0;i<40;i++){
+                ctx.strokeStyle=`rgba(255,255,255,${0.04+Math.random()*0.06})`;
+                ctx.lineWidth=0.7;
+                const sx=Math.random()*256, sy=Math.random()*256;
+                ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+(Math.random()-0.5)*30,sy+(Math.random()-0.5)*6); ctx.stroke();
+            }
+            // Потёки
+            for(let i=0;i<6;i++){
+                const sx=Math.random()*256;
+                const g2=ctx.createLinearGradient(sx,0,sx,256);
+                g2.addColorStop(0,'rgba(0,0,0,0)');
+                g2.addColorStop(0.5,'rgba(40,30,20,0.25)');
+                g2.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.fillStyle=g2; ctx.fillRect(sx-1,0,2+Math.random()*3,256);
+            }
+            const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4; return t;
+        }
+        function makeArenaWallTex() {
+            const c=document.createElement('canvas'); c.width=256; c.height=256;
+            const ctx=c.getContext('2d');
+            ctx.fillStyle='#a8a090'; ctx.fillRect(0,0,256,256);
+            // Большие панели — горизонтальные плиты
+            ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=2.5;
+            for(let y=0;y<=256;y+=42){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke(); }
+            ctx.strokeStyle='rgba(0,0,0,0.30)'; ctx.lineWidth=1.5;
+            for(let row=0;row<7;row++){
+                const off=row%2===0?0:64;
+                for(let x=off-64;x<256+64;x+=128){ ctx.beginPath();ctx.moveTo(x,row*42);ctx.lineTo(x,row*42+42);ctx.stroke(); }
+            }
+            // Грязь / потёки
+            for(let i=0;i<10;i++){
+                const sx=Math.random()*256;
+                const g2=ctx.createLinearGradient(sx,0,sx,256);
+                g2.addColorStop(0,'rgba(0,0,0,0)');
+                g2.addColorStop(0.4,'rgba(50,40,30,0.25)');
+                g2.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.fillStyle=g2; ctx.fillRect(sx,0,3+Math.random()*4,256);
+            }
+            // Зерно
+            for(let i=0;i<180;i++){
+                ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;
+                ctx.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1);
+            }
+            const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(4,3); t.anisotropy=4; return t;
+        }
+
+        const matFloor=new THREE.MeshPhongMaterial({map:makeArenaFloorTex(),shininess:8,specular:0x222222});
+        const matKubeGray=new THREE.MeshPhongMaterial({map:makeKubeTex(210,200,180),shininess:10,specular:0x333333});
+        const matKubeRed =new THREE.MeshPhongMaterial({map:makeKubeTex(170,90,60), shininess:10,specular:0x333333});
+        const matKubeBlue=new THREE.MeshPhongMaterial({map:makeKubeTex(80,110,170), shininess:10,specular:0x333333});
+        const matKubeYel =new THREE.MeshPhongMaterial({map:makeKubeTex(200,170,70), shininess:10,specular:0x333333});
+        const matWall    =new THREE.MeshPhongMaterial({map:makeArenaWallTex(),shininess:6,specular:0x222222});
+        const matWallTop =new THREE.MeshPhongMaterial({color:0x4a443a,shininess:8,specular:0x222222});
+        const matMetal   =new THREE.MeshPhongMaterial({color:0x4a4a4a,shininess:50,specular:0x444444});
+        const matStripe  =new THREE.MeshBasicMaterial({color:0xffcc00});
+        const matStripeRed=new THREE.MeshBasicMaterial({color:0xcc2200});
+
+        // ── ПОЛ — большая плитчатая площадка ─────────────────────────────
+        const floor=new THREE.Mesh(new THREE.PlaneGeometry(600,600),matFloor);
+        floor.rotation.x=-Math.PI/2; floor.position.y=-0.5; mapGroup.add(floor);
+
+        // Центральный круг (декор)
+        const centerCircle=new THREE.Mesh(new THREE.CircleGeometry(8,32),new THREE.MeshPhongMaterial({color:0x444038,shininess:6,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-8}));
+        centerCircle.rotation.x=-Math.PI/2; centerCircle.position.y=-0.48; mapGroup.add(centerCircle);
+        const centerRing=new THREE.Mesh(new THREE.RingGeometry(7.6,8.2,32),new THREE.MeshBasicMaterial({color:0xffcc00,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-9}));
+        centerRing.rotation.x=-Math.PI/2; centerRing.position.y=-0.47; mapGroup.add(centerRing);
+        // Эмблема — звезда в центре
+        const starShape=new THREE.Shape();
+        const starPts=10, sOut=4.5, sIn=1.9;
+        for(let i=0;i<starPts;i++){
+            const ang=i*Math.PI/starPts - Math.PI/2;
+            const rr=i%2===0?sOut:sIn;
+            const sx=Math.cos(ang)*rr, sz=Math.sin(ang)*rr;
+            if(i===0) starShape.moveTo(sx,sz); else starShape.lineTo(sx,sz);
+        }
+        starShape.closePath();
+        const starGeo=new THREE.ShapeGeometry(starShape);
+        const star=new THREE.Mesh(starGeo,new THREE.MeshBasicMaterial({color:0xffcc00,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-10}));
+        star.rotation.x=-Math.PI/2; star.position.y=-0.46; mapGroup.add(star);
+
+        // Линии «дорожек» от спавнов к центру (4 направления)
+        const matLine=new THREE.MeshBasicMaterial({color:0xeec040,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-8});
+        for(let r=0;r<4;r++) {
+            const lane=new THREE.Mesh(new THREE.PlaneGeometry(160,0.5),matLine);
+            lane.rotation.x=-Math.PI/2; lane.rotation.z=r*Math.PI/4;
+            lane.position.y=-0.48; mapGroup.add(lane);
+        }
+
+        // ── ПЕРИМЕТР — НИЗКИЕ СТЕНЫ С ЯРКОЙ ПОЛОСОЙ ──────────────────────
+        const WALL_H=8, WALL_T=4, WALL_R=95;
+        for(const [w,d,x,z] of [
+            [WALL_R*2+WALL_T*2, WALL_T, 0,-WALL_R],
+            [WALL_R*2+WALL_T*2, WALL_T, 0, WALL_R],
+            [WALL_T, WALL_R*2-WALL_T*2,-WALL_R,0],
+            [WALL_T, WALL_R*2-WALL_T*2, WALL_R,0],
+        ]) {
+            addBox(w,WALL_H,d,x,0,z,matWall);
+            // Верхняя кромка — тёмный бордюр
+            addBox(w+0.4,0.8,d+0.4,x,WALL_H,z,matWallTop,true);
+            // Жёлтая полоса безопасности на высоте 4
+            const stripe=new THREE.Mesh(
+                w>d ? new THREE.BoxGeometry(w*0.96,0.5,d+0.06)
+                    : new THREE.BoxGeometry(w+0.06,0.5,d*0.96),
+                matStripe);
+            stripe.position.set(x,3.0,z); mapGroup.add(stripe);
+        }
+
+        // Угловые столбы периметра — массивнее, как в ТО
+        for(let [cx,cz] of [[-WALL_R,-WALL_R],[WALL_R,-WALL_R],[-WALL_R,WALL_R],[WALL_R,WALL_R]]) {
+            addBox(7,WALL_H+2,7,cx,0,cz,matWallTop);
+            // Колпачок-кубик сверху
+            addBox(7.6,1.5,7.6,cx,WALL_H+2,cz,matKubeYel,true);
+            // Сигнальная лампочка
+            const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.45,8,8),new THREE.MeshBasicMaterial({color:0xff3300}));
+            lamp.position.set(cx,WALL_H+4.2,cz); mapGroup.add(lamp);
+        }
+
+        // Прожекторы по углам (декорация наверху)
+        for(let [cx,cz,tx,tz] of [[-WALL_R,-WALL_R, 0,0],[WALL_R,-WALL_R,0,0],[-WALL_R,WALL_R,0,0],[WALL_R,WALL_R,0,0]]) {
+            const proj=new THREE.Mesh(new THREE.BoxGeometry(1.2,1.0,1.8),matMetal);
+            proj.position.set(cx*0.95,WALL_H+3,cz*0.95);
+            proj.lookAt(new THREE.Vector3(0,WALL_H+2,0));
+            mapGroup.add(proj);
+            const beam=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.4,0.5),new THREE.MeshBasicMaterial({color:0xffffcc}));
+            beam.position.copy(proj.position).add(new THREE.Vector3(0,0,-0.9).applyEuler(proj.rotation));
+            mapGroup.add(beam);
+        }
+
+        // ── КУБЫ — основной геймплейный элемент карты ────────────────────
+        // Большие кубы (3×3×3) — основные укрытия
+        function addBigKube(x,z,mat,rot=0) {
+            const k=new THREE.Mesh(new THREE.BoxGeometry(6,6,6),mat);
+            k.position.set(x,3.0,z); k.rotation.y=rot; mapGroup.add(k);
+            mapObjects.push(new THREE.Box3().setFromObject(k));
+            // Чёрная окантовка сверху
+            const cap=new THREE.Mesh(new THREE.BoxGeometry(6.2,0.25,6.2),new THREE.MeshPhongMaterial({color:0x222222,shininess:30}));
+            cap.position.set(x,6.13,z); cap.rotation.y=rot; mapGroup.add(cap);
+            // Болты по верхним углам
+            for(const [bx,bz] of [[-2.5,-2.5],[2.5,-2.5],[-2.5,2.5],[2.5,2.5]]) {
+                const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.18,8),new THREE.MeshPhongMaterial({color:0x555555,shininess:60}));
+                bolt.position.set(x+bx,6.25,z+bz); bolt.rotation.y=rot; mapGroup.add(bolt);
+            }
+        }
+        function addSmallKube(x,z,mat) {
+            const k=new THREE.Mesh(new THREE.BoxGeometry(3.5,3.5,3.5),mat);
+            k.position.set(x,1.75,z); mapGroup.add(k);
+            mapObjects.push(new THREE.Box3().setFromObject(k));
+            const cap=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.18,3.6),new THREE.MeshPhongMaterial({color:0x222222,shininess:30}));
+            cap.position.set(x,3.59,z); mapGroup.add(cap);
+        }
+        function addStackedKubes(x,z,m1,m2) {
+            const k=new THREE.Mesh(new THREE.BoxGeometry(5,5,5),m1);
+            k.position.set(x,2.5,z); mapGroup.add(k);
+            mapObjects.push(new THREE.Box3().setFromObject(k));
+            const k2=new THREE.Mesh(new THREE.BoxGeometry(3.2,3.2,3.2),m2);
+            k2.position.set(x,5.0+1.6,z); k2.rotation.y=Math.PI/6; mapGroup.add(k2);
+        }
+
+        // Симметричная расстановка кубов — стиль арен ТО
+        const kubeMats=[matKubeGray,matKubeRed,matKubeBlue,matKubeYel];
+        const pickMat=()=>kubeMats[Math.floor(Math.random()*kubeMats.length)];
+        // Большие кубы по ромбу
+        addBigKube(-32,-32,matKubeGray); addBigKube(32,-32,matKubeRed);
+        addBigKube(-32, 32,matKubeBlue); addBigKube(32, 32,matKubeYel);
+        addBigKube(-60,  0,matKubeGray,Math.PI/4); addBigKube(60,  0,matKubeGray,Math.PI/4);
+        addBigKube(  0,-60,matKubeRed,Math.PI/4);  addBigKube(  0, 60,matKubeBlue,Math.PI/4);
+        // Малые кубы — внутри
+        addSmallKube(-18, 0,matKubeYel); addSmallKube(18, 0,matKubeYel);
+        addSmallKube( 0,-18,matKubeGray); addSmallKube(0, 18,matKubeGray);
+        addSmallKube(-22,-50,matKubeRed); addSmallKube(22,-50,matKubeRed);
+        addSmallKube(-22, 50,matKubeBlue); addSmallKube(22, 50,matKubeBlue);
+        // Сложные конструкции из 2 кубов
+        addStackedKubes(-52,-52,matKubeGray,matKubeRed);
+        addStackedKubes( 52,-52,matKubeRed,matKubeYel);
+        addStackedKubes(-52, 52,matKubeBlue,matKubeGray);
+        addStackedKubes( 52, 52,matKubeYel,matKubeBlue);
+        // Боковые длинные кубы-баррикады
+        for(let [x,z,w,d] of [
+            [-78,-15, 5,16], [78,-15, 5,16], [-78,15, 5,16], [78,15, 5,16],
+            [-15,-78,16, 5], [15,-78,16, 5], [-15,78,16, 5], [15,78,16, 5]
+        ]) {
+            const m=new THREE.Mesh(new THREE.BoxGeometry(w,4,d),matKubeGray);
+            m.position.set(x,2,z); mapGroup.add(m);
+            mapObjects.push(new THREE.Box3().setFromObject(m));
+            const cap=new THREE.Mesh(new THREE.BoxGeometry(w+0.2,0.2,d+0.2),new THREE.MeshPhongMaterial({color:0x222222,shininess:30}));
+            cap.position.set(x,4.11,z); mapGroup.add(cap);
+        }
+        // Низкие плиты для пристрелки — посередине каждой четверти
+        for(let [x,z] of [[-45,0],[45,0],[0,-45],[0,45]]) {
+            const slab=new THREE.Mesh(new THREE.BoxGeometry(7,1.5,2.5),matKubeYel);
+            slab.position.set(x,0.75,z); mapGroup.add(slab);
+            mapObjects.push(new THREE.Box3().setFromObject(slab));
+        }
+
+        // ── ВЫШКА В ЦЕНТРЕ (декор + укрытие) ─────────────────────────────
+        // Постамент звезды
+        const podiumBase=new THREE.Mesh(new THREE.CylinderGeometry(9,10,1.6,16),matKubeGray);
+        podiumBase.position.set(0,0.8,0); mapGroup.add(podiumBase);
+        mapObjects.push(new THREE.Box3().setFromObject(podiumBase));
+        const podiumRing=new THREE.Mesh(new THREE.TorusGeometry(9.2,0.18,8,32),new THREE.MeshBasicMaterial({color:0xffcc00}));
+        podiumRing.rotation.x=-Math.PI/2; podiumRing.position.y=1.6; mapGroup.add(podiumRing);
+
+        // ── СТРОИТЕЛЬНАЯ ТЕХНИКА — декор ──────────────────────────────────
+        // Бочки группами
+        const barrelMat=new THREE.MeshPhongMaterial({color:0x3a5a18,shininess:20});
+        const barrelRingMat=new THREE.MeshPhongMaterial({color:0x222222,shininess:30});
+        function addArenaBarrel(x,z,col=0x3a5a18) {
+            const m=new THREE.MeshPhongMaterial({color:col,shininess:20});
+            const body=new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.78,1.85,12),m);
+            body.position.set(x,0.93,z); mapGroup.add(body);
+            for(let ry of [0.3,0.95,1.6]){
+                const r=new THREE.Mesh(new THREE.CylinderGeometry(0.82,0.82,0.08,12),barrelRingMat);
+                r.position.set(x,ry,z); mapGroup.add(r);
+            }
+            mapObjects.push(new THREE.Box3().setFromObject(body));
+        }
+        for(let [bx,bz,bc] of [
+            [-72,-72,0x4a3a20],[-70,-74,0x3a5a18],[-74,-70,0x5a3a18],
+            [ 72,-72,0x3a5a18],[ 74,-70,0x4a3a20],[ 70,-74,0x5a3a18],
+            [-72, 72,0x5a3a18],[-70, 74,0x3a5a18],[-74, 70,0x4a3a20],
+            [ 72, 72,0x4a3a20],[ 74, 70,0x5a3a18],[ 70, 74,0x3a5a18]
+        ]) addArenaBarrel(bx,bz,bc);
+
+        // ── РЕКЛАМНЫЕ ЩИТЫ С НАДПИСЯМИ TANKI ONLINE ──────────────────────
+        function makeBillboardTex(text='TANKI ONLINE',sub='КУБИКИ') {
+            const c=document.createElement('canvas'); c.width=512; c.height=128;
+            const ctx=c.getContext('2d');
+            // Чёрный фон с градиентом
+            const g2=ctx.createLinearGradient(0,0,0,128);
+            g2.addColorStop(0,'#0a0a0a'); g2.addColorStop(0.5,'#1a1a1a'); g2.addColorStop(1,'#000000');
+            ctx.fillStyle=g2; ctx.fillRect(0,0,512,128);
+            // Жёлтая рамка
+            ctx.strokeStyle='#ffcc00'; ctx.lineWidth=6; ctx.strokeRect(4,4,504,120);
+            ctx.strokeStyle='#cc9900'; ctx.lineWidth=2; ctx.strokeRect(10,10,492,108);
+            // Главный текст — зелёный неон
+            ctx.font='bold 56px Oswald, Arial';
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.shadowColor='#6cce00'; ctx.shadowBlur=18;
+            ctx.fillStyle='#8eff00'; ctx.fillText(text,256,52);
+            ctx.shadowBlur=0;
+            // Под-текст
+            ctx.font='bold 22px Oswald, Arial';
+            ctx.fillStyle='#ffcc00'; ctx.fillText(sub,256,98);
+            const t=new THREE.CanvasTexture(c);
+            return t;
+        }
+        for(let [bx,bz,ry] of [[0,-94,0],[0,94,Math.PI],[-94,0,Math.PI/2],[94,0,-Math.PI/2]]) {
+            const board=new THREE.Mesh(new THREE.PlaneGeometry(16,4),new THREE.MeshBasicMaterial({map:makeBillboardTex('TANKI ONLINE','КУБИКИ'),side:THREE.DoubleSide}));
+            board.position.set(bx,WALL_H-1.5,bz); board.rotation.y=ry; mapGroup.add(board);
+            // Опоры под щитом
+            for(let oxs of [-7,7]) {
+                const pst=new THREE.Mesh(new THREE.BoxGeometry(0.4,3.5,0.4),matMetal);
+                pst.position.set(bx+(ry===0||ry===Math.PI?oxs:0),WALL_H-3.5,bz+(ry===0||ry===Math.PI?0:oxs));
+                mapGroup.add(pst);
+            }
+        }
+
+        // ── ДЕРЕВЯННЫЕ ЯЩИКИ ВДОЛЬ КРАЁВ ──────────────────────────────────
+        const matWood=new THREE.MeshPhongMaterial({color:0x7a5a2a,shininess:8});
+        const matWoodDark=new THREE.MeshPhongMaterial({color:0x3a2800,shininess:8});
+        function addWoodCrate(x,z,s=2.2) {
+            const cr=new THREE.Mesh(new THREE.BoxGeometry(s,s,s),matWood);
+            cr.position.set(x,s/2,z); mapGroup.add(cr);
+            mapObjects.push(new THREE.Box3().setFromObject(cr));
+            for(let ax of ['x','z']){
+                const st=new THREE.Mesh(new THREE.BoxGeometry(ax==='x'?s+0.06:0.16,0.16,ax==='z'?s+0.06:0.16),matWoodDark);
+                st.position.set(x,s*0.55,z); mapGroup.add(st);
+                const st2=st.clone(); st2.position.y=s*0.82; mapGroup.add(st2);
+            }
+        }
+        for(let [cx,cz] of [
+            [-80,-50],[-82,-46],[80,50],[82,46],[80,-50],[-80,50]
+        ]) addWoodCrate(cx,cz);
+
+        // ── ФОНАРНЫЕ СТОЛБЫ ──────────────────────────────────────────────
+        function addArenaLamp(x,z) {
+            const post=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.22,9,8),new THREE.MeshPhongMaterial({color:0x3a3830,shininess:30}));
+            post.position.set(x,4.5,z); mapGroup.add(post);
+            const head=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.4,1.6),matMetal);
+            head.position.set(x,9.0,z); mapGroup.add(head);
+            const globe=new THREE.Mesh(new THREE.SphereGeometry(0.55,12,10),new THREE.MeshBasicMaterial({color:0xffffcc}));
+            globe.position.set(x,8.85,z); mapGroup.add(globe);
+            // Лёгкий точечный свет
+            const pt=new THREE.PointLight(0xffeecc,0.45,28);
+            pt.position.set(x,8.5,z); mapGroup.add(pt);
+        }
+        for(let [lx,lz] of [
+            [-WALL_R+8,-WALL_R+8],[WALL_R-8,-WALL_R+8],[-WALL_R+8,WALL_R-8],[WALL_R-8,WALL_R-8],
+            [0,-WALL_R+8],[0,WALL_R-8],[-WALL_R+8,0],[WALL_R-8,0]
+        ]) addArenaLamp(lx,lz);
+
     } else {
         // ======= ТИШИНА (Silence) — стиль Танки Онлайн 2012 =======
         sceneBat.background=new THREE.Color(0xc8b87a);
@@ -3373,6 +4298,20 @@ function renderLoop() {
         // Плавное вращение если не тащат
         if(!document.getElementById('garage-drag-area').style.cursor.includes('grabbing')) {
             garageTankRot+=dt*0.4;
+        }
+        // Анимация прожекторов — медленно вращаются на потолке
+        if(sceneGar.userData.spotlightGroup) {
+            sceneGar.userData.spotlightGroup.rotation.y+=dt*0.25;
+        }
+        // Анимация точек на кольце — бегущая волна
+        if(sceneGar.userData.ringDots) {
+            const tNow=clock.elapsedTime||(performance.now()/1000);
+            sceneGar.userData.ringDots.forEach((d,i)=>{
+                const phase=(tNow*2 - i*0.3)%6.28;
+                const br=0.4+0.6*Math.max(0,Math.cos(phase));
+                d.material.color.setRGB(0.55*br, 1.0*br, 0.0);
+                d.scale.y=0.6+0.8*br;
+            });
         }
         renderer.render(sceneGar,camera);
     }
